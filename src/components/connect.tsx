@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { connectWallet, getBalance, onAccountsChanged, onChainChanged, isOnSepolia, switchToSepolia } from '../lib/ethersClient';
 
-export default function Connect() {
+interface ConnectProps {
+  onConnectionChange: (connected: boolean, address: string, correctNetwork: boolean) => void;
+}
+
+export default function Connect({ onConnectionChange }: ConnectProps) {
   const [account, setAccount] = useState<string>('');
   const [balance, setBalance] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -9,10 +13,14 @@ export default function Connect() {
   const [wrongNetwork, setWrongNetwork] = useState<boolean>(false);
   const [switchingNetwork, setSwitchingNetwork] = useState<boolean>(false);
 
-  const checkNetwork = async () => {
+  const checkNetwork = async (address?: string) => {
     try {
       const onSepolia = await isOnSepolia();
       setWrongNetwork(!onSepolia);
+      const addr = address || account;
+      if (addr) {
+        onConnectionChange(true, addr, onSepolia);
+      }
       return onSepolia;
     } catch (err) {
       return false;
@@ -27,7 +35,7 @@ export default function Connect() {
       const data = await connectWallet();
       setAccount(data.address);
       setBalance(data.balance);
-      await checkNetwork();
+      await checkNetwork(data.address);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -46,6 +54,7 @@ export default function Connect() {
       if (account) {
         const newBalance = await getBalance(account);
         setBalance(newBalance);
+        onConnectionChange(true, account, true);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to switch network');
@@ -59,6 +68,7 @@ export default function Connect() {
     setBalance('');
     setError('');
     setWrongNetwork(false);
+    onConnectionChange(false, '', false);
   };
 
   useEffect(() => {
