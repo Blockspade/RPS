@@ -1,23 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import Connect from './components/connect'
 import CreateGame from './components/CreateGame'
-import LoadGame from './components/LoadGame'
+import GameView from './components/GameView'
 
 function App() {
   const [account, setAccount] = useState<string>('');
+  const [balance, setBalance] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isCorrectNetwork, setIsCorrectNetwork] = useState<boolean>(false);
-  const [gameMode, setGameMode] = useState<'create' | 'load' | null>(null);
+  const [showCreateGame, setShowCreateGame] = useState<boolean>(false);
+  const [viewingGame, setViewingGame] = useState<string>('');
+  const [manualAddress, setManualAddress] = useState<string>('');
 
-  const handleConnectionChange = (connected: boolean, address: string, correctNetwork: boolean) => {
+  const handleConnectionChange = (connected: boolean, address: string, correctNetwork: boolean, walletBalance?: string) => {
     setIsConnected(connected);
     setAccount(address);
     setIsCorrectNetwork(correctNetwork);
+    if (walletBalance) {
+      setBalance(walletBalance);
+    }
     if (!connected) {
-      setGameMode(null);
+      setBalance('');
+      setShowCreateGame(false);
+      setViewingGame('');
     }
   };
+
+  // Check URL for game parameter on load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gameAddress = params.get('game');
+    if (gameAddress) {
+      setViewingGame(gameAddress);
+    }
+  }, []);
 
   const renderContent = () => {
     // Show connect if not connected or wrong network
@@ -25,55 +42,67 @@ function App() {
       return <Connect onConnectionChange={handleConnectionChange} />;
     }
 
-    // Show game mode selection
-    if (!gameMode) {
+    // Show GameView if viewing a specific game
+    if (viewingGame) {
       return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">
-              Rock Paper Scissors
-            </h1>
-            <p className="text-sm text-gray-600 mb-6">
-              Connected: {account.slice(0, 6)}...{account.slice(-4)}
-            </p>
-
-            <div className="space-y-4">
-              <button
-                onClick={() => setGameMode('create')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 rounded-lg transition shadow-md hover:shadow-lg"
-              >
-                <div className="text-lg font-bold mb-1">Create Game</div>
-                <div className="text-xs opacity-90">Start a new game and challenge someone</div>
-              </button>
-
-              <button
-                onClick={() => setGameMode('load')}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-4 rounded-lg transition shadow-md hover:shadow-lg"
-              >
-                <div className="text-lg font-bold mb-1">Load Game</div>
-                <div className="text-xs opacity-90">Join an existing game</div>
-              </button>
-            </div>
-
-            <button
-              onClick={() => handleConnectionChange(false, '', false)}
-              className="w-full mt-6 text-sm text-gray-500 hover:text-gray-700 transition"
-            >
-              Disconnect
-            </button>
-          </div>
-        </div>
+        <GameView 
+          contractAddress={viewingGame}
+          account={account}
+          onBack={() => setViewingGame('')}
+        />
       );
     }
 
-    // Show game components based on mode
-    if (gameMode === 'create') {
-      return <CreateGame account={account} onBack={() => setGameMode(null)} />;
+    // Show CreateGame form
+    if (showCreateGame) {
+      return (
+        <CreateGame 
+          account={account} 
+          onBack={() => setShowCreateGame(false)}
+          onGameCreated={(address) => {
+            setShowCreateGame(false);
+            setViewingGame(address);
+          }}
+        />
+      );
     }
 
-    if (gameMode === 'load') {
-      return <LoadGame account={account} onBack={() => setGameMode(null)} />;
-    }
+    // Simple main menu
+    return (
+      <div>
+        <div>
+          <h1>Rock Paper Scissors</h1>
+          <p>{account.slice(0, 6)}...{account.slice(-4)}</p>
+          <p>{balance} ETH</p>
+
+          <hr />
+
+          <button onClick={() => setShowCreateGame(true)}>
+            Create New Game
+          </button>
+
+          <p>Or join with contract address:</p>
+          <input
+            type="text"
+            placeholder="0x..."
+            value={manualAddress}
+            onChange={(e) => setManualAddress(e.target.value)}
+          />
+          <button 
+            onClick={() => manualAddress && setViewingGame(manualAddress)}
+            disabled={!manualAddress}
+          >
+            Join Game
+          </button>
+
+          <hr />
+
+          <button onClick={() => handleConnectionChange(false, '', false)}>
+            Disconnect
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return <>{renderContent()}</>;

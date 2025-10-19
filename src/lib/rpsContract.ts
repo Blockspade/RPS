@@ -1,5 +1,6 @@
-import { BrowserProvider, Contract, formatEther, parseEther } from 'ethers';
+import { BrowserProvider, Contract, ContractFactory, formatEther, parseEther } from 'ethers';
 import RPS_ABI from '../abi/rps.json';
+import { RPS_BYTECODE } from '../abi/bytecode';
 
 export const Move = {
   Null: 0,
@@ -45,7 +46,7 @@ export const getGameState = async (contractAddress: string): Promise<GameState> 
     contract.lastAction(),
     contract.TIMEOUT()
   ]);
-
+  console.log(contractAddress, j1, j2, stake, c2, c1Hash, lastAction, timeout);
   return {
     j1,
     j2,
@@ -82,5 +83,94 @@ export const getMoveString = (move: Move): string => {
     case Move.Lizard: return 'Lizard';
     default: return 'None';
   }
+};
+
+export const getMoveEmoji = (move: Move): string => {
+  switch (move) {
+    case Move.Rock: return '✊';
+    case Move.Paper: return '📄';
+    case Move.Scissors: return '✂️';
+    case Move.Spock: return '🖖';
+    case Move.Lizard: return '🦎';
+    default: return '❓';
+  }
+};
+
+// Determine winner using the contract's win() function
+// Returns: 1 if c1 wins, 2 if c2 wins, 0 if tie
+export const determineWinner = async (contractAddress: string, c1: Move, c2: Move): Promise<number> => {
+  if (c1 === c2) return 0; // Tie
+  if (c1 === Move.Null || c2 === Move.Null) return 0;
+  
+  try {
+    const provider = new BrowserProvider(window.ethereum);
+    const contract = new Contract(contractAddress, RPS_ABI, provider);
+    
+    // Call contract's win() function to check if c1 wins
+    const c1Wins: boolean = await contract.win(c1, c2);
+    
+    return c1Wins ? 1 : 2;
+  } catch (error) {
+    console.error('Error determining winner:', error);
+    // Fallback: if contract call fails, return 0 (unknown)
+    return 0;
+  }
+};
+
+
+export const deployGame = async (
+  c1Hash: string,
+  j2Address: string,
+  stakeAmount: string
+): Promise<string> => {
+  if (RPS_BYTECODE.includes("BYTECODE_NEEDED")) {
+    throw new Error("Contract bytecode not configured. Please add your compiled bytecode to src/abi/bytecode.ts");
+  }
+
+  const provider = new BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+
+  const factory = new ContractFactory(RPS_ABI, RPS_BYTECODE, signer);
+
+  const contract = await factory.deploy(c1Hash, j2Address, {
+    value: parseEther(stakeAmount)
+  });
+
+  await contract.waitForDeployment();
+
+  const address = await contract.getAddress();
+
+  return address;
+};
+
+export const solveGame = async (
+  contractAddress: string,
+  move: number,
+  salt: string
+): Promise<void> => {
+  const provider = new BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+  const contract = new Contract(contractAddress, RPS_ABI, signer);
+
+  const tx = await contract.solve(move, salt);
+  await tx.wait();
+};
+
+export const j1Timeout = async (contractAddress: string): Promise<void> => {
+  const provider = new BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+  const contract = new Contract(contractAddress, RPS_ABI, signer);
+
+  const tx = await contract.j1Timeout();
+  await tx.wait();
+};
+
+export const j2Timeout = async (contractAddress: string): Promise<void> => {
+  const provider = new BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+  const contract = new Contract(contractAddress, RPS_ABI, signer);
+
+  const tx = await contract.j2Timeout();
+  await tx.wait();
 };
 
