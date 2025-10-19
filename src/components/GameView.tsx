@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getGameState, Move, solveGame, playMove, getMoveString, getMoveEmoji, determineWinner } from '../lib/rpsContract';
+import { getGameState, Move, solveGame, playMove, getMoveString, getMoveEmoji, determineWinner, j1Timeout, j2Timeout } from '../lib/rpsContract';
 import type { GameState } from '../lib/rpsContract';
 import { getGame } from '../lib/gameStorage';
 
@@ -79,6 +79,8 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
   const [playing, setPlaying] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [revealedMove, setRevealedMove] = useState<Move | null>(null);
+  const [callingTimeout, setCallingTimeout] = useState(false);
+  const [isTimedOut, setIsTimedOut] = useState(false);
 
   useEffect(() => {
     loadGame();
@@ -104,10 +106,12 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
 
       if (remaining <= 0) {
         setTimeLeft('Timeout!');
+        setIsTimedOut(true);
       } else {
         const minutes = Math.floor(remaining / 60);
         const seconds = remaining % 60;
         setTimeLeft(`${minutes}m ${seconds}s`);
+        setIsTimedOut(false);
       }
     };
 
@@ -177,6 +181,36 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
     }
   };
 
+  const handleJ2Timeout = async () => {
+    setCallingTimeout(true);
+    setError('');
+
+    try {
+      await j2Timeout(contractAddress);
+      alert('Timeout called! You won by default.');
+      loadGame(); // Refresh
+    } catch (err: any) {
+      setError(err.message || 'Failed to call timeout');
+    } finally {
+      setCallingTimeout(false);
+    }
+  };
+
+  const handleJ1Timeout = async () => {
+    setCallingTimeout(true);
+    setError('');
+
+    try {
+      await j1Timeout(contractAddress);
+      alert('Timeout called! You won by default.');
+      loadGame(); // Refresh
+    } catch (err: any) {
+      setError(err.message || 'Failed to call timeout');
+    } finally {
+      setCallingTimeout(false);
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -224,7 +258,27 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
           <p>Player 1: {gameState.j1.slice(0, 10)}...{isPlayer1 && ' (You)'}</p>
           <p>Player 2: {gameState.j2.slice(0, 10)}...{isPlayer2 && ' (You)'}</p>
           <p>Stake: {gameState.stake} ETH</p>
-          {!isGameComplete && <p>⏱️ Time Remaining: {timeLeft}</p>}
+          {!isGameComplete && (
+            <p>
+              ⏱️ Time Remaining: {' '}
+              {isTimedOut && ((isPlayer1 && !hasPlayer2Played) || (isPlayer2 && hasPlayer2Played)) ? (
+                <span 
+                  onClick={isPlayer1 && !hasPlayer2Played ? handleJ2Timeout : handleJ1Timeout}
+                  style={{ 
+                    color: 'red', 
+                    cursor: callingTimeout ? 'wait' : 'pointer',
+                    textDecoration: 'underline',
+                    fontWeight: 'bold'
+                  }}
+                  title="Click to claim timeout win"
+                >
+                  {callingTimeout ? 'Processing...' : timeLeft}
+                </span>
+              ) : (
+                timeLeft
+              )}
+            </p>
+          )}
         </div>
 
         <hr />
