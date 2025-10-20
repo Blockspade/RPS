@@ -96,27 +96,22 @@ export const getMoveEmoji = (move: Move): string => {
   }
 };
 
-// Determine winner using the contract's win() function
-// Returns: 1 if c1 wins, 2 if c2 wins, 0 if tie
 export const determineWinner = async (contractAddress: string, c1: Move, c2: Move): Promise<number> => {
-  if (c1 === c2) return 0; // Tie
+  if (c1 === c2) return 0;
   if (c1 === Move.Null || c2 === Move.Null) return 0;
   
   try {
     const provider = new BrowserProvider(window.ethereum);
     const contract = new Contract(contractAddress, RPS_ABI, provider);
     
-    // Call contract's win() function to check if c1 wins
     const c1Wins: boolean = await contract.win(c1, c2);
     
     return c1Wins ? 1 : 2;
   } catch (error) {
     console.error('Error determining winner:', error);
-    // Fallback: if contract call fails, return 0 (unknown)
     return 0;
   }
 };
-
 
 export const deployGame = async (
   c1Hash: string,

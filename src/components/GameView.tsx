@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getGameState, Move, solveGame, playMove, getMoveString, getMoveEmoji, determineWinner, j1Timeout, j2Timeout } from '../lib/rpsContract';
 import type { GameState } from '../lib/rpsContract';
-import { getGame } from '../lib/gameStorage';
+import { uploadSaltFile } from '../lib/fileStorage';
 
 interface GameViewProps {
   contractAddress: string;
@@ -81,6 +81,8 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
   const [revealedMove, setRevealedMove] = useState<Move | null>(null);
   const [callingTimeout, setCallingTimeout] = useState(false);
   const [isTimedOut, setIsTimedOut] = useState(false);
+  const [uploadedSalt, setUploadedSalt] = useState<string>('');
+  const [originalStake, setOriginalStake] = useState<string>('');
 
   useEffect(() => {
     loadGame();
@@ -125,6 +127,11 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
     try {
       const state = await getGameState(contractAddress);
       setGameState(state);
+      
+      // Store original stake before game completes
+      if (parseFloat(state.stake) > 0 && !originalStake) {
+        setOriginalStake(state.stake);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load game');
     } finally {
@@ -139,26 +146,28 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleFileUpload = async () => {
+    setError('');
+    try {
+      const data = await uploadSaltFile();
+      setUploadedSalt(data.salt);
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload file');
+    }
+  };
+
   const handleReveal = async () => {
-    if (!selectedMove || !gameState) return;
+    if (!selectedMove || !gameState || !uploadedSalt) return;
 
     setRevealing(true);
     setError('');
 
     try {
-      const savedGame = getGame(contractAddress);
-      if (!savedGame) {
-        throw new Error('Game data not found. Did you create this game on this browser?');
-      }
-
-      await solveGame(contractAddress, selectedMove, savedGame.salt);
-      
-      // Save the revealed move in state (not localStorage)
+      await solveGame(contractAddress, selectedMove, uploadedSalt);
       setRevealedMove(selectedMove);
-      
-      loadGame(); // Refresh to show result
+      loadGame();
     } catch (err: any) {
-      setError(err.message || 'Failed to reveal. Wrong move?');
+      setError(err.message || 'Failed to reveal');
     } finally {
       setRevealing(false);
     }
@@ -311,7 +320,7 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
                   c2={gameState.c2}
                   isPlayer1={isPlayer1}
                   isPlayer2={isPlayer2}
-                  stake={gameState.stake}
+                  stake={originalStake || gameState.stake}
                 />
 
                 <button onClick={onBack}>Back to Menu</button>
@@ -350,30 +359,50 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
         {!isGameComplete && isPlayer1 && hasPlayer2Played && (
           <div>
             <h3>✅ Player 2 has played!</h3>
-            <p>Enter your move to reveal and resolve the game:</p>
+            <p>Upload your salt file and select your move to reveal:</p>
             
-            <div>
-              {moves.map((move) => (
-                <button
-                  key={move.value}
-                  onClick={() => setSelectedMove(move.value)}
-                  style={{
-                    border: selectedMove === move.value ? '2px solid blue' : '1px solid gray',
-                    margin: '5px'
-                  }}
-                >
-                  <div>{move.emoji}</div>
-                  <div>{move.label}</div>
+            {!uploadedSalt ? (
+              <div style={{ marginBottom: '20px' }}>
+                <button onClick={handleFileUpload}>
+                  📁 Upload Salt File
                 </button>
-              ))}
-            </div>
+                <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  Select the .json file you downloaded when creating the game
+                </p>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '20px' }}>
+                <p style={{ color: 'green' }}>✓ File uploaded</p>
+                
+                <div style={{ marginTop: '15px' }}>
+                  <label>Select your move:</label>
+                  <div style={{ marginTop: '10px' }}>
+                    {moves.map((move) => (
+                      <button
+                        key={move.value}
+                        onClick={() => setSelectedMove(move.value)}
+                        style={{
+                          border: selectedMove === move.value ? '2px solid blue' : '1px solid gray',
+                          margin: '5px',
+                          padding: '10px'
+                        }}
+                      >
+                        <div>{move.emoji}</div>
+                        <div>{move.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <button 
-              onClick={handleReveal} 
-              disabled={!selectedMove || revealing}
-            >
-              {revealing ? 'Revealing...' : 'Reveal Move & Resolve Game'}
-            </button>
+                <button 
+                  onClick={handleReveal} 
+                  disabled={!selectedMove || revealing}
+                  style={{ marginTop: '15px' }}
+                >
+                  {revealing ? 'Revealing...' : 'Reveal & Resolve Game'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

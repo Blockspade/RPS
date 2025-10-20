@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { isAddress } from 'ethers';
 import { generateSaltUint256, commitment } from '../lib/hashing';
 import { deployGame, Move } from '../lib/rpsContract';
-import { saveGame } from '../lib/gameStorage';
+import { downloadSaltFile } from '../lib/fileStorage';
 
 interface CreateGameProps {
   account: string;
@@ -22,7 +22,6 @@ export default function CreateGame({ account, onBack, onGameCreated }: CreateGam
     setError('');
 
     try {
-      // Validation
       if (!selectedMove) {
         throw new Error('Please select your move');
       }
@@ -43,15 +42,15 @@ export default function CreateGame({ account, onBack, onGameCreated }: CreateGam
       // Deploy the contract
       const contractAddress = await deployGame(c1Hash, opponentAddress, stakeAmount);
 
-      saveGame({
-        contractAddress,
-        salt: salt.toString()
-      });
+      // Download salt file
+      downloadSaltFile(salt.toString());
 
-      // Navigate directly to GameView
-      if (onGameCreated) {
-        onGameCreated(contractAddress);
-      }
+      // Navigate to GameView
+      setTimeout(() => {
+        if (onGameCreated) {
+          onGameCreated(contractAddress);
+        }
+      }, 500);
     } catch (err: any) {
       setError(err.message || 'Failed to create game');
     } finally {
@@ -118,11 +117,10 @@ export default function CreateGame({ account, onBack, onGameCreated }: CreateGam
           <button
             onClick={handleCreateGame}
             disabled={loading || !selectedMove || !opponentAddress || !stakeAmount}
+            style={{ marginTop: '15px' }}
           >
-            {loading ? 'Deploying Contract...' : 'Create Game & Deploy'}
+            {loading ? 'Deploying...' : 'Create Game & Deploy'}
           </button>
-
-          <p>This will deploy a new contract and cost gas + your stake</p>
         </div>
       </div>
     </div>
