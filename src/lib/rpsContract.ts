@@ -1,6 +1,7 @@
-import { BrowserProvider, Contract, ContractFactory, formatEther, parseEther } from 'ethers';
+import { Contract, ContractFactory, formatEther, parseEther } from 'ethers';
 import RPS_ABI from '../abi/rps.json';
 import { RPS_BYTECODE } from '../abi/bytecode';
+import { getPublicProvider, getSignerProvider } from './ethersClient';
 
 export const Move = {
   Null: 0,
@@ -25,7 +26,7 @@ export interface GameState {
 
 export const checkContractExists = async (address: string): Promise<boolean> => {
   try {
-    const provider = new BrowserProvider(window.ethereum);
+    const provider = getPublicProvider();
     const code = await provider.getCode(address);
     return code !== '0x';
   } catch (error) {
@@ -34,7 +35,7 @@ export const checkContractExists = async (address: string): Promise<boolean> => 
 };
 
 export const getGameState = async (contractAddress: string): Promise<GameState> => {
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getPublicProvider();
   const contract = new Contract(contractAddress, RPS_ABI, provider);
 
   const [j1, j2, stake, c2, c1Hash, lastAction, timeout] = await Promise.all([
@@ -63,7 +64,8 @@ export const playMove = async (
   move: Move,
   stakeAmount: string
 ): Promise<void> => {
-  const provider = new BrowserProvider(window.ethereum);
+  // Use signer provider for transactions
+  const provider = getSignerProvider();
   const signer = await provider.getSigner();
   const contract = new Contract(contractAddress, RPS_ABI, signer);
 
@@ -101,7 +103,7 @@ export const determineWinner = async (contractAddress: string, c1: Move, c2: Mov
   if (c1 === Move.Null || c2 === Move.Null) return 0;
   
   try {
-    const provider = new BrowserProvider(window.ethereum);
+    const provider = getPublicProvider();
     const contract = new Contract(contractAddress, RPS_ABI, provider);
     
     const c1Wins: boolean = await contract.win(c1, c2);
@@ -122,7 +124,7 @@ export const deployGame = async (
     throw new Error("Contract bytecode not configured. Please add your compiled bytecode to src/abi/bytecode.ts");
   }
 
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getSignerProvider();
   const signer = await provider.getSigner();
 
   const factory = new ContractFactory(RPS_ABI, RPS_BYTECODE, signer);
@@ -143,7 +145,7 @@ export const solveGame = async (
   move: number,
   salt: string
 ): Promise<void> => {
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getSignerProvider();
   const signer = await provider.getSigner();
   const contract = new Contract(contractAddress, RPS_ABI, signer);
 
@@ -152,7 +154,7 @@ export const solveGame = async (
 };
 
 export const j1Timeout = async (contractAddress: string): Promise<void> => {
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getSignerProvider();
   const signer = await provider.getSigner();
   const contract = new Contract(contractAddress, RPS_ABI, signer);
 
@@ -161,7 +163,7 @@ export const j1Timeout = async (contractAddress: string): Promise<void> => {
 };
 
 export const j2Timeout = async (contractAddress: string): Promise<void> => {
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getSignerProvider();
   const signer = await provider.getSigner();
   const contract = new Contract(contractAddress, RPS_ABI, signer);
 

@@ -1,4 +1,4 @@
-import { BrowserProvider, formatEther } from 'ethers';
+import { BrowserProvider, JsonRpcProvider, formatEther } from 'ethers';
 import { SEPOLIA } from './chain';
 
 declare global {
@@ -6,6 +6,19 @@ declare global {
     ethereum?: any;
   }
 }
+
+// Public RPC provider for consistent state reading across all users
+export const getPublicProvider = () => {
+  return new JsonRpcProvider(SEPOLIA.rpcUrl);
+};
+
+// MetaMask provider for signing transactions
+export const getSignerProvider = () => {
+  if (!window.ethereum) {
+    throw new Error('MetaMask not installed');
+  }
+  return new BrowserProvider(window.ethereum);
+};
 
 export const connectWallet = async () => {
   if (!window.ethereum) {
@@ -16,10 +29,13 @@ export const connectWallet = async () => {
     method: 'eth_requestAccounts'
   });
 
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getSignerProvider();
   const signer = await provider.getSigner();
   const address = await signer.getAddress();
-  const balance = await provider.getBalance(address);
+  
+  // Use public provider for balance to ensure consistency
+  const publicProvider = getPublicProvider();
+  const balance = await publicProvider.getBalance(address);
   const network = await provider.getNetwork();
 
   return {
@@ -30,7 +46,8 @@ export const connectWallet = async () => {
 };
 
 export const getBalance = async (address: string) => {
-  const provider = new BrowserProvider(window.ethereum);
+  // Use public provider for balance to ensure consistency
+  const provider = getPublicProvider();
   const balance = await provider.getBalance(address);
   return parseFloat(formatEther(balance)).toFixed(4);
 };
@@ -56,7 +73,7 @@ export const getCurrentChainId = async (): Promise<string> => {
   if (!window.ethereum) {
     throw new Error('MetaMask not installed');
   }
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = getSignerProvider();
   const network = await provider.getNetwork();
   return network.chainId.toString();
 };
@@ -90,7 +107,7 @@ export const switchToSepolia = async () => {
               symbol: 'ETH',
               decimals: 18,
             },
-            rpcUrls: ['https://sepolia.infura.io/v3/'],
+            rpcUrls: [SEPOLIA.rpcUrl],
             blockExplorerUrls: [SEPOLIA.explorer],
           },
         ],
