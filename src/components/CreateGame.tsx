@@ -6,11 +6,13 @@ import { downloadSaltFile } from '../lib/fileStorage';
 
 interface CreateGameProps {
   account: string;
+  balance: string;
   onBack: () => void;
   onGameCreated?: (contractAddress: string) => void;
+  onBalanceRefresh: () => Promise<void>;
 }
 
-export default function CreateGame({ account, onBack, onGameCreated }: CreateGameProps) {
+export default function CreateGame({ account, balance, onBack, onGameCreated, onBalanceRefresh }: CreateGameProps) {
   const [selectedMove, setSelectedMove] = useState<number | null>(null);
   const [opponentAddress, setOpponentAddress] = useState<string>('');
   const [stakeAmount, setStakeAmount] = useState<string>('');
@@ -45,6 +47,9 @@ export default function CreateGame({ account, onBack, onGameCreated }: CreateGam
       // Download salt file
       downloadSaltFile(salt.toString());
 
+      // Refresh balance after deployment
+      await onBalanceRefresh();
+
       // Navigate to GameView
       setTimeout(() => {
         if (onGameCreated) {
@@ -73,6 +78,7 @@ export default function CreateGame({ account, onBack, onGameCreated }: CreateGam
           <button onClick={onBack}>← Back</button>
           <h2>Create New Game</h2>
           <p>{account.slice(0, 6)}...{account.slice(-4)}</p>
+          <p>{balance} ETH</p>
         </div>
 
         {error && <div>{error}</div>}
@@ -114,10 +120,23 @@ export default function CreateGame({ account, onBack, onGameCreated }: CreateGam
             />
           </div>
 
+          <div style={{ 
+            marginTop: '20px',
+            marginBottom: '15px', 
+            padding: '12px', 
+            backgroundColor: '#fff3cd', 
+            borderLeft: '4px solid #ffc107',
+            borderRadius: '4px',
+            color: '#333',
+            fontSize: '14px',
+            lineHeight: '1.5'
+          }}>
+            <strong>⚠️ Critical:</strong> A salt file will be automatically downloaded when you create the game. Keep it safe! You'll need it to reveal your move later. Without it, you cannot complete the game and will lose by timeout.
+          </div>
+
           <button
             onClick={handleCreateGame}
             disabled={loading || !selectedMove || !opponentAddress || !stakeAmount}
-            style={{ marginTop: '15px' }}
           >
             {loading ? 'Deploying...' : 'Create Game & Deploy'}
           </button>

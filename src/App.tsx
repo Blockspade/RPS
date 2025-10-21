@@ -3,15 +3,29 @@ import './App.css'
 import Connect from './components/connect'
 import CreateGame from './components/CreateGame'
 import GameView from './components/GameView'
+import GameRulesAck from './components/GameRulesAck'
+import { getBalance } from './lib/ethersClient'
 
 function App() {
   const [account, setAccount] = useState<string>('');
   const [balance, setBalance] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isCorrectNetwork, setIsCorrectNetwork] = useState<boolean>(false);
+  const [hasAcknowledged, setHasAcknowledged] = useState<boolean>(false);
   const [showCreateGame, setShowCreateGame] = useState<boolean>(false);
   const [viewingGame, setViewingGame] = useState<string>('');
   const [manualAddress, setManualAddress] = useState<string>('');
+
+  const refreshBalance = async () => {
+    if (account) {
+      try {
+        const newBalance = await getBalance(account);
+        setBalance(newBalance);
+      } catch (error) {
+        console.error('Failed to refresh balance:', error);
+      }
+    }
+  };
 
   const handleConnectionChange = (connected: boolean, address: string, correctNetwork: boolean, walletBalance?: string) => {
     setIsConnected(connected);
@@ -24,7 +38,12 @@ function App() {
       setBalance('');
       setShowCreateGame(false);
       setViewingGame('');
+      setHasAcknowledged(false);
     }
+  };
+
+  const handleAcknowledge = () => {
+    setHasAcknowledged(true);
   };
 
   // Check URL for game parameter on load
@@ -42,13 +61,20 @@ function App() {
       return <Connect onConnectionChange={handleConnectionChange} />;
     }
 
+    // Show acknowledgment screen if user hasn't acknowledged yet
+    if (!hasAcknowledged) {
+      return <GameRulesAck onAcknowledge={handleAcknowledge} />;
+    }
+
     // Show GameView if viewing a specific game
     if (viewingGame) {
       return (
         <GameView 
           contractAddress={viewingGame}
           account={account}
+          balance={balance}
           onBack={() => setViewingGame('')}
+          onBalanceRefresh={refreshBalance}
         />
       );
     }
@@ -57,12 +83,14 @@ function App() {
     if (showCreateGame) {
       return (
         <CreateGame 
-          account={account} 
+          account={account}
+          balance={balance}
           onBack={() => setShowCreateGame(false)}
           onGameCreated={(address) => {
             setShowCreateGame(false);
             setViewingGame(address);
           }}
+          onBalanceRefresh={refreshBalance}
         />
       );
     }

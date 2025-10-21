@@ -6,7 +6,9 @@ import { uploadSaltFile } from '../lib/fileStorage';
 interface GameViewProps {
   contractAddress: string;
   account: string;
+  balance: string;
   onBack: () => void;
+  onBalanceRefresh: () => Promise<void>;
 }
 
 // Component to display winner/loser/tie result
@@ -69,7 +71,7 @@ function WinnerDisplay({
   }
 }
 
-export default function GameView({ contractAddress, account, onBack }: GameViewProps) {
+export default function GameView({ contractAddress, account, balance, onBack, onBalanceRefresh }: GameViewProps) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,10 +88,12 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
 
   useEffect(() => {
     loadGame();
+    onBalanceRefresh(); // Initial balance refresh
     
     // Poll every 15 seconds
     const pollInterval = setInterval(() => {
       loadGame();
+      onBalanceRefresh(); // Refresh balance on each poll
     }, 15000);
 
     return () => clearInterval(pollInterval);
@@ -165,6 +169,7 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
     try {
       await solveGame(contractAddress, selectedMove, uploadedSalt);
       setRevealedMove(selectedMove);
+      await onBalanceRefresh();
       loadGame();
     } catch (err: any) {
       setError(err.message || 'Failed to reveal');
@@ -181,6 +186,7 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
 
     try {
       await playMove(contractAddress, selectedMove, gameState.stake);
+      await onBalanceRefresh();
       alert('Move played! Waiting for Player 1 to reveal.');
       loadGame(); // Refresh
     } catch (err: any) {
@@ -196,6 +202,7 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
 
     try {
       await j2Timeout(contractAddress);
+      await onBalanceRefresh();
       alert('Timeout called! You won by default.');
       loadGame(); // Refresh
     } catch (err: any) {
@@ -211,6 +218,7 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
 
     try {
       await j1Timeout(contractAddress);
+      await onBalanceRefresh();
       alert('Timeout called! You won by default.');
       loadGame(); // Refresh
     } catch (err: any) {
@@ -259,6 +267,8 @@ export default function GameView({ contractAddress, account, onBack }: GameViewP
       <div>
         <button onClick={onBack}>← Back</button>
         <h2>Rock Paper Scissors</h2>
+        <p>{account.slice(0, 6)}...{account.slice(-4)}</p>
+        <p>{balance} ETH</p>
 
         {error && <div style={{color: 'red'}}>{error}</div>}
 
