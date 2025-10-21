@@ -48,23 +48,23 @@ function WinnerDisplay({
 
   if (winner === 0) {
     return (
-      <div style={{ padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', marginBottom: '15px' }}>
-        <h3>🤝 It's a Tie!</h3>
+      <div style={{ padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', marginBottom: '15px', color: '#333' }}>
+        <h3 style={{ color: '#333' }}>🤝 It's a Tie!</h3>
         <p>Both players chose {getMoveString(revealedMove)}.</p>
         <p>Stakes have been returned.</p>
       </div>
     );
   } else if ((winner === 1 && isPlayer1) || (winner === 2 && isPlayer2)) {
     return (
-      <div style={{ padding: '15px', backgroundColor: '#d4edda', borderRadius: '8px', marginBottom: '15px' }}>
-        <h3>🎉 You Won!</h3>
+      <div style={{ padding: '15px', backgroundColor: '#d4edda', borderRadius: '8px', marginBottom: '15px', color: '#155724' }}>
+        <h3 style={{ color: '#155724' }}>🎉 You Won!</h3>
         <p>Congratulations! You won {winAmount} ETH</p>
       </div>
     );
   } else {
     return (
-      <div style={{ padding: '15px', backgroundColor: '#f8d7da', borderRadius: '8px', marginBottom: '15px' }}>
-        <h3>😔 You Lost</h3>
+      <div style={{ padding: '15px', backgroundColor: '#f8d7da', borderRadius: '8px', marginBottom: '15px', color: '#721c24' }}>
+        <h3 style={{ color: '#721c24' }}>😔 You Lost</h3>
         <p>Better luck next time!</p>
       </div>
     );
